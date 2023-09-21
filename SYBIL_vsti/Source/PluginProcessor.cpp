@@ -26,10 +26,13 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+        state (*this, &undoManager, "STATE", {
+            std::make_unique<juce::AudioParameterChoice> ("audioInputDevices", "AudioInputDevices", getInputDeviceNames(), getInputDeviceNames().size() > 0 ? 0 : -1)
+            })
 #endif
 {
-
+    audioDeviceManager.initialise(2, 2, nullptr, true);
 }
 
 SYBIL_vstiAudioProcessor::~SYBIL_vstiAudioProcessor() {
@@ -88,10 +91,25 @@ void SYBIL_vstiAudioProcessor::changeProgramName (int index, const juce::String&
 }
 
 //==============================================================================
+
+juce::StringArray SYBIL_vstiAudioProcessor::getInputDeviceNames()
+{
+    juce::StringArray deviceNames;
+
+    if (auto* currentAudioDeviceType = audioDeviceManager.getCurrentDeviceTypeObject())
+    {
+        deviceNames = currentAudioDeviceType->getDeviceNames(true); // true for input devices
+    }
+    else
+    {
+        deviceNames.add("none found");
+    }
+
+    return deviceNames;
+}
+
 void SYBIL_vstiAudioProcessor::startSYBIL() {
     juce::Logger::writeToLog("we have liftoff!");
-    audioDeviceManager.initialise(1, 0, nullptr, true);
-    audioDeviceManager.addAudioCallback(this);
     // Initialization code here
 }
 

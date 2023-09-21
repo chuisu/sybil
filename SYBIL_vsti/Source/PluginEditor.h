@@ -29,5 +29,9 @@ private:
     // access the processor object that created it.
     SYBIL_vstiAudioProcessor& audioProcessor;
     juce::TextButton mainToggleButton;
+
+    juce::ComboBox audioDeviceSelector;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> audioDeviceSelectorAttachment;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SYBIL_vstiAudioProcessorEditor)
 };

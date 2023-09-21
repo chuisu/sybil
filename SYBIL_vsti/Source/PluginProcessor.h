@@ -35,6 +35,8 @@ public:
     void analyzeAudio(const float** inputChannelData, int numInputChannels, int numSamples);
     void makePrediction();
 
+    juce::StringArray getInputDeviceNames();
+
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -68,10 +70,12 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     //==============================================================================
+    juce::AudioProcessorValueTreeState state;
+
 
 private:
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SYBIL_vstiAudioProcessor)
-
+    juce::UndoManager undoManager;
     juce::AudioDeviceManager audioDeviceManager;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SYBIL_vstiAudioProcessor)
 };

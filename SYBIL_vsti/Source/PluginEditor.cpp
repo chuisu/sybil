@@ -16,6 +16,17 @@ SYBIL_vstiAudioProcessorEditor::SYBIL_vstiAudioProcessorEditor (SYBIL_vstiAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
+
+    audioDeviceSelector.addItemList (static_cast<SYBIL_vstiAudioProcessor&>(processor).getInputDeviceNames(), 1);
+    audioDeviceSelector.setSelectedId(1);
+    addAndMakeVisible (&audioDeviceSelector);
+
+    SYBIL_vstiAudioProcessor* sybilProcessor = dynamic_cast<SYBIL_vstiAudioProcessor*>(&processor);
+    if (sybilProcessor != nullptr)
+    {
+        audioDeviceSelectorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(sybilProcessor->state, "AudioInputDevices", audioDeviceSelector);
+    }
+
     addAndMakeVisible(mainToggleButton);
     mainToggleButton.setButtonText("START");
     mainToggleButton.onClick = [this] {
@@ -29,7 +40,8 @@ SYBIL_vstiAudioProcessorEditor::SYBIL_vstiAudioProcessorEditor (SYBIL_vstiAudioP
     };
 
     // Set button size and position
-    mainToggleButton.setBounds(10, 10, 100, 30);}
+
+}
 
 SYBIL_vstiAudioProcessorEditor::~SYBIL_vstiAudioProcessorEditor()
 {
@@ -43,11 +55,13 @@ void SYBIL_vstiAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colours::white);
     g.setFont (15.0f);
-    g.drawFittedText ("Hi! I'm SYBIL, and I'm always listening!", getLocalBounds(), juce::Justification::topRight, 1);
+    g.drawFittedText ("Hi! I'm SYBIL, and I'm always listening!", getLocalBounds(), juce::Justification::topLeft, 1);
 }
 
 void SYBIL_vstiAudioProcessorEditor::resized()
 {
+    audioDeviceSelector.setBounds (10, 20, 150, 20);
+    mainToggleButton.setBounds(10, 260, 100, 30);
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
 }
