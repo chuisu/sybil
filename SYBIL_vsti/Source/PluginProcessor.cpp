@@ -27,9 +27,7 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
                        ),
-        state (*this, &undoManager, "STATE", {
-            std::make_unique<juce::AudioParameterChoice> ("audioInputDevices", "AudioInputDevices", getInputDeviceNames(), getInputDeviceNames().size() > 0 ? 0 : -1)
-            })
+
 #endif
 {
     audioDeviceManager.initialise(2, 2, nullptr, true);

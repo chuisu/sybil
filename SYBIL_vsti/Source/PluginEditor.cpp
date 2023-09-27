@@ -16,16 +16,20 @@ SYBIL_vstiAudioProcessorEditor::SYBIL_vstiAudioProcessorEditor (SYBIL_vstiAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
-
+    startTimer(50);
+    /*
+    //commenting out this device selector because the DAW should take care of it. We can reimplement if necessary
     audioDeviceSelector.addItemList (static_cast<SYBIL_vstiAudioProcessor&>(processor).getInputDeviceNames(), 1);
     audioDeviceSelector.setSelectedId(1);
     addAndMakeVisible (&audioDeviceSelector);
+
 
     SYBIL_vstiAudioProcessor* sybilProcessor = dynamic_cast<SYBIL_vstiAudioProcessor*>(&processor);
     if (sybilProcessor != nullptr)
     {
         audioDeviceSelectorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(sybilProcessor->state, "AudioInputDevices", audioDeviceSelector);
     }
+    */
 
     addAndMakeVisible(mainToggleButton);
     mainToggleButton.setButtonText("START");
@@ -39,7 +43,10 @@ SYBIL_vstiAudioProcessorEditor::SYBIL_vstiAudioProcessorEditor (SYBIL_vstiAudioP
         }
     };
 
-    // Set button size and position
+    sybilModeSelector.addItem("Standalone", 1);
+    sybilModeSelector.addItem("Duet", 2);
+    sybilModeCombo.onChange = [this] { sybilModeComboChanged(); };
+    addAndMakeVisible(&sybilModeCombo);
 
 }
 
@@ -65,3 +72,28 @@ void SYBIL_vstiAudioProcessorEditor::resized()
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
 }
+
+/*
+void SYBIL_vstiAudioProcessorEditor::sybilModeComboChanged()
+{
+    auto* sybilModeParam = dynamic_cast<juce::AudioParameterChoice*>(audioProcessor.getParameters().getUnchecked(0));  // Assumes sybilMode is the first parameter
+    if (sybilModeParam)
+    {
+        sybilModeParam->beginChangeGesture();
+        sybilModeParam->setValueNotifyingHost((float)(sybilModeSelector.getSelectedId() - 1) / (sybilModeParam->getNumChoices() - 1));
+        sybilModeParam->endChangeGesture();
+    }
+}
+
+
+void SYBIL_vstiAudioProcessorEditor::timerCallback()
+{
+    auto* sybilModeParam = dynamic_cast<juce::AudioParameterChoice*>(audioProcessor.getParameters().getUnchecked(0));  // Assumes sybilMode is the first parameter
+    if (sybilModeParam)
+    {
+        int index = sybilModeParam->getIndex();
+        sybilModeSelector.setSelectedId(index + 1, juce::dontSendNotification);
+    }
+}
+
+*/

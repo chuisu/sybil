@@ -39,7 +39,7 @@
     </CODEBLOCKS_LINUX>
     <LINUX_MAKE targetFolder="Builds/LinuxMakefile">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="SYBIL_vsti" vst3BinaryLocation="/home/Workspace/sybil-git/sybil/SYBIL_vsti/"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="SYBIL_vsti"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="SYBIL_vsti"/>
       </CONFIGURATIONS>
       <MODULEPATHS>

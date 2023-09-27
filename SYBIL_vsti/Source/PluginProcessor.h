@@ -36,7 +36,6 @@ public:
     void makePrediction();
 
     juce::StringArray getInputDeviceNames();
-
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -70,6 +69,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     //==============================================================================
+    
     juce::AudioProcessorValueTreeState state;
 
 
