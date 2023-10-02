@@ -26,11 +26,14 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       ),
+                       )
 
 #endif
 {
     audioDeviceManager.initialise(2, 2, nullptr, true);
+    ringBuffer.setSize(0, 1024);
+    ringBuffer.clear();
+    essentia::init();
 }
 
 SYBIL_vstiAudioProcessor::~SYBIL_vstiAudioProcessor() {
@@ -112,24 +115,57 @@ void SYBIL_vstiAudioProcessor::startSYBIL() {
 }
 
 void SYBIL_vstiAudioProcessor::audioDeviceAboutToStart(juce::AudioIODevice* device) {
-    // We need to better understand this audioDeviceAboutToStart
+    sampleRate = device->getCurrentSampleRate();
 }
 
 void SYBIL_vstiAudioProcessor::audioDeviceStopped() {
-    // What does this function do?
+    sampleRate = 0;
 }
 
 void SYBIL_vstiAudioProcessor::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) {
-    analyzeAudio(inputChannelData, numInputChannels, numSamples);
-    // Handle output if necessary
+
 }
 
-void SYBIL_vstiAudioProcessor::analyzeAudio(const float** inputChannelData, int numInputChannels, int numSamples) {
-    // Analyze audio, estimate BPM, adjust window size, etc.
-    // You could call makePrediction() from here or elsewhere depending on how you want to structure it
+float SYBIL_vstiAudioProcessor::detectBPM(std::vector<float>& audioBuffer) {
+    using namespace essentia;
+    using namespace essentia::standard;
+        // Create a pool to store the results
+    Pool pool;
+
+    // Algorithm factory instance
+    AlgorithmFactory& factory = AlgorithmFactory::instance();
+
+    // Create the RhythmExtractor2013 algorithm
+    Algorithm* rhythmExtractor = factory.create("RhythmExtractor2013");
+
+    // Declare separate variables for the output
+    float bpm;
+    std::vector<float> ticks;
+    float confidence;
+    std::vector<float> estimates;
+    std::vector<float> bpmIntervals;
+
+    // Input and output setup
+    rhythmExtractor->input("signal").set(audioBuffer);
+    rhythmExtractor->output("bpm").set(bpm);
+    rhythmExtractor->output("ticks").set(ticks);
+    rhythmExtractor->output("confidence").set(confidence);
+    rhythmExtractor->output("estimates").set(estimates);
+    rhythmExtractor->output("bpmIntervals").set(bpmIntervals);
+
+    // Compute BPM
+    rhythmExtractor->compute();
+
+    // Store the output in the pool
+    pool.add("bpm", bpm);
+
+    // Clean-up, if needed (Depends on how often you plan to use the algorithm)
+    delete rhythmExtractor;
+
+    return bpm;
 }
 
-void SYBIL_vstiAudioProcessor::makePrediction() {
+void SYBIL_vstiAudioProcessor::predictNote() {
     // Make predictions in Hz using 'SYBIL.h5'
 }
 void SYBIL_vstiAudioProcessor::stopSYBIL() {
@@ -178,6 +214,8 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    int counter = 0;
+    const int bpmThreshold = 258;
 
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
@@ -185,6 +223,7 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // This is here to avoid people getting screaming feedback
     // when they first compile a plugin, but obviously you don't need to keep
     // this code if your algorithm always overwrites all the output channels.
+
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
@@ -194,12 +233,31 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel) {
-        /* auto* channelData = buffer.getWritePointer (channel); */
+    for (int channel = 0; channel < totalNumOutputChannels; ++channel)
+    {
+        // Your existing processing code here
 
-        // ..do something to the data...
+        // Copying from the incoming buffer to your ring buffer
+        ringBuffer.copyFrom(channel, writePos, buffer, channel, 0, buffer.getNumSamples());
+    }
+
+    writePos = (writePos + buffer.getNumSamples()) % ringBuffer.getNumSamples();
+
+    counter++;
+    if (counter >= bpmThreshold)
+    {
+        // Convert ringBuffer to std::vector<float> if your detectBPM function requires it
+        std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
+
+        float bpm = detectBPM(audioData);
+        std::cout << bpm;
+
+        counter = 0;
     }
 }
+
+
+
 
 //==============================================================================
 bool SYBIL_vstiAudioProcessor::hasEditor() const
@@ -225,7 +283,15 @@ void SYBIL_vstiAudioProcessor::setStateInformation (const void* data, int sizeIn
     // whose contents will have been created by the getStateInformation() call.
 }
 
+juce::AudioProcessorValueTreeState::ParameterLayout
+    SYBIL_vstiAudioProcessor::createParameterLayout()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
+    // If we need more params, we can add them here
+
+    return layout;
+}
 
 //==============================================================================
 // This creates new instances of the plugin..

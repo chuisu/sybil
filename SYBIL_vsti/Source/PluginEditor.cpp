@@ -16,7 +16,6 @@ SYBIL_vstiAudioProcessorEditor::SYBIL_vstiAudioProcessorEditor (SYBIL_vstiAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
-    startTimer(50);
     /*
     //commenting out this device selector because the DAW should take care of it. We can reimplement if necessary
     audioDeviceSelector.addItemList (static_cast<SYBIL_vstiAudioProcessor&>(processor).getInputDeviceNames(), 1);
@@ -43,10 +42,12 @@ SYBIL_vstiAudioProcessorEditor::SYBIL_vstiAudioProcessorEditor (SYBIL_vstiAudioP
         }
     };
 
+    /*
     sybilModeSelector.addItem("Standalone", 1);
     sybilModeSelector.addItem("Duet", 2);
     sybilModeCombo.onChange = [this] { sybilModeComboChanged(); };
     addAndMakeVisible(&sybilModeCombo);
+    */
 
 }
 
@@ -67,7 +68,6 @@ void SYBIL_vstiAudioProcessorEditor::paint (juce::Graphics& g)
 
 void SYBIL_vstiAudioProcessorEditor::resized()
 {
-    audioDeviceSelector.setBounds (10, 20, 150, 20);
     mainToggleButton.setBounds(10, 260, 100, 30);
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..

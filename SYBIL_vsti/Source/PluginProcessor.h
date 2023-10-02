@@ -32,12 +32,15 @@ public:
     void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
     void audioDeviceStopped() override;
 
-    void analyzeAudio(const float** inputChannelData, int numInputChannels, int numSamples);
-    void makePrediction();
+    float detectBPM(std::vector<float>& audioBuffer);
+    void predictNote();
 
     juce::StringArray getInputDeviceNames();
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
+
+    juce::AudioBuffer<float> ringBuffer;
+    int writePos = 0;
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
@@ -69,12 +72,16 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     //==============================================================================
-    
-    juce::AudioProcessorValueTreeState state;
+
+    juce::AudioProcessorValueTreeState::ParameterLayout
+        createParameterLayout();
+    juce::AudioProcessorValueTreeState SYBILValueTreeState {*this, nullptr, "Parameters", createParameterLayout()};
 
 
 private:
     //==============================================================================
+
+    double sampleRate = 0.0;
     juce::UndoManager undoManager;
     juce::AudioDeviceManager audioDeviceManager;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SYBIL_vstiAudioProcessor)
