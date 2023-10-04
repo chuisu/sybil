@@ -171,20 +171,27 @@ std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& au
     AlgorithmFactory& factory = AlgorithmFactory::instance();
 
     // Declare algorithms
+    Algorithm* window = factory.create("Windowing",
+                                   "type", "hann"); // you can choose other types like "hamming", "blackman", etc.
     Algorithm* fft = factory.create("FFT");
     Algorithm* spectralPeaks = factory.create("SpectralPeaks");
     Algorithm* hpcp = factory.create("HPCP");
 
     // Input and output vectors
-    std::vector<float> spectrum;
+    std::vector<std::complex<float>> fftOutput;
     std::vector<float> frequenciesVector;
     std::vector<float> magnitudesVector;
+    std::vector<float> windowedFrame;
+
+    window->input("frame").set(audioData);
+    window->output("frame").set(windowedFrame);
+    window->compute();
 
     // Configure and connect algorithms
-    fft->input("frame").set(audioData); // Assuming audioFrame is a frame of audio data
-    fft->output("fft").set(spectrum);
+    fft->input("frame").set(windowedFrame); // Assuming audioFrame is a frame of audio data
+    fft->output("fft").set(fftOutput);
 
-    spectralPeaks->input("spectrum").set(spectrum);
+    spectralPeaks->input("spectrum").set(windowedFrame);
     spectralPeaks->output("frequencies").set(frequenciesVector);
     spectralPeaks->output("magnitudes").set(magnitudesVector);
 
@@ -261,70 +268,34 @@ bool SYBIL_vstiAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
-void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
+void SYBIL_vstiAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear(i, 0, buffer.getNumSamples());
 
     int newWritePos = (writePos + buffer.getNumSamples()) % ringBuffer.getNumSamples();
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-
     for (int channel = 0; channel < totalNumOutputChannels; ++channel) {
-        // If there's enough space in the ring buffer to accommodate the incoming buffer
         if (writePos + buffer.getNumSamples() <= ringBuffer.getNumSamples()) {
-            // Copy all samples from buffer to ringBuffer starting at writePos
             ringBuffer.copyFrom(channel, writePos, buffer, channel, 0, buffer.getNumSamples());
         } else {
-            // Handle case where writing buffer would exceed ringBuffer size
-
-            // Calculate the number of samples to the end of ringBuffer
             const int samplesToEnd = ringBuffer.getNumSamples() - writePos;
-
-            // Calculate the remaining samples that will loop back to the beginning
             const int samplesToBeginning = buffer.getNumSamples() - samplesToEnd;
-
-            // Copy samples to the end of the ringBuffer
             ringBuffer.copyFrom(channel, writePos, buffer, channel, 0, samplesToEnd);
-
-            // Copy the remaining samples to the beginning of the ringBuffer
             ringBuffer.copyFrom(channel, 0, buffer, channel, samplesToEnd, samplesToBeginning);
         }
-
     }
-
-    // Update writePos for the next round
-    // std::cout << "writePos = " << writePos << std::endl;
     writePos = newWritePos;
-    // std::cout << "newWritePos = " << newWritePos << std::endl;
 
     bpmCounter += buffer.getNumSamples();
-
-    if (bpmCounter >= getSampleRate())
-    {
+    if (bpmCounter >= getSampleRate()) {
         bpmCounter = 0;
-
-        // Capture the audio data into a std::vector for BPM detection
         std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
-
-        // Launch a new thread to perform BPM detection
         bpmThread = std::thread(&SYBIL_vstiAudioProcessor::detectBPMThreaded, this, audioData);
-        bpmThread.detach(); // Let it run freely; we won't join it
+        bpmThread.detach();
     }
 
     float currentBPM;
@@ -332,31 +303,21 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         std::lock_guard<std::mutex> lock(bpmMutex);
         currentBPM = *bpmPointer;
     }
-    // Compute the number of samples for a sixteenth note based on current BPM
-    int samplesPerBeat = static_cast<int>(getSampleRate() * 60.0 / currentBPM); // samples for a quarter note
-    int samplesPerSixteenth = samplesPerBeat / 4; // Assuming 4 sixteenth notes per beat
-    int hopSize = samplesPerSixteenth;  // No overlap; adjust if you want overlap.
 
-    for (int startSample = 0; startSample + samplesPerSixteenth <= audioData.size(); startSample += hopSize) {
-        std::vector<float> frame(audioData.begin() + startSample, audioData.begin() + startSample + samplesPerSixteenth);
-        // Process this frame...
-    }
+    int samplesPerBeat = static_cast<int>(getSampleRate() * 60.0 / currentBPM);
+    int samplesPerSixteenth = samplesPerBeat / 4;
 
     hpcpCounter += buffer.getNumSamples();
-
     if (hpcpCounter >= samplesPerSixteenth) {
         hpcpCounter = 0;
-
         std::vector<float> audioDataForHPCP(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + samplesPerSixteenth);
         std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
 
-        // Do something with hpcpValues...
         for (float value : hpcpValues) {
             std::cout << value << " ";
         }
         std::cout << std::endl;
     }
-
 }
 
 void SYBIL_vstiAudioProcessor::detectBPMThreaded(std::vector<float> audioData)
