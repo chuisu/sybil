@@ -36,6 +36,7 @@ public:
 
     float detectBPM(std::vector<float>& audioBuffer);
     void detectBPMThreaded(std::vector<float> audioData);
+    std::vector<float> computeHPCPs(std::vector<float>& audioData);
     void predictNote();
 
     juce::StringArray getInputDeviceNames();
@@ -84,7 +85,15 @@ private:
     //==============================================================================
     std::thread bpmThread; // Thread for BPM detection
     std::mutex bpmMutex;   // Mutex for protecting shared data
-    int counter = 0;
+    std::condition_variable bpmCondVar;
+    bool shouldExit = false; // A flag to signal the thread to terminate
+    bool hasNewData = false;  // A flag to signal the thread that new data is available
+    std::vector<float> threadAudioData;  // Buffer for data that should be processed by the thread
+    float bpm = 120.0;
+    float* bpmPointer;
+
+    int bpmCounter = 0;
+    int hpcpCounter = 0;
     int writePos = 0;
     double sampleRate = 0.0;
     const int bpmThreshold = 258;

@@ -32,6 +32,7 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
 {
     audioDeviceManager.initialise(2, 2, nullptr, true);
     essentia::init();
+    bpmPointer = &bpm;
 }
 
 SYBIL_vstiAudioProcessor::~SYBIL_vstiAudioProcessor() {
@@ -164,9 +165,53 @@ float SYBIL_vstiAudioProcessor::detectBPM(std::vector<float>& audioBuffer) {
     return bpm;
 }
 
+std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& audioData) {
+    using namespace essentia;
+    using namespace essentia::standard;
+    AlgorithmFactory& factory = AlgorithmFactory::instance();
+
+    // Declare algorithms
+    Algorithm* fft = factory.create("FFT");
+    Algorithm* spectralPeaks = factory.create("SpectralPeaks");
+    Algorithm* hpcp = factory.create("HPCP");
+
+    // Input and output vectors
+    std::vector<float> spectrum;
+    std::vector<float> frequenciesVector;
+    std::vector<float> magnitudesVector;
+
+    // Configure and connect algorithms
+    fft->input("frame").set(audioData); // Assuming audioFrame is a frame of audio data
+    fft->output("fft").set(spectrum);
+
+    spectralPeaks->input("spectrum").set(spectrum);
+    spectralPeaks->output("frequencies").set(frequenciesVector);
+    spectralPeaks->output("magnitudes").set(magnitudesVector);
+
+    // Compute FFT and Spectral Peaks
+    fft->compute();
+    spectralPeaks->compute();
+    // ... configure the HPCP algorithm if necessary ...
+
+    // Input & output setup
+    std::vector<float> hpcpValues;
+    hpcp->input("frequencies").set(frequenciesVector);
+    hpcp->input("magnitudes").set(magnitudesVector);
+    hpcp->output("hpcp").set(hpcpValues);
+
+    // Compute
+    hpcp->compute();
+
+    // Cleanup if necessary
+    delete hpcp;
+
+    return hpcpValues;
+}
+
 void SYBIL_vstiAudioProcessor::predictNote() {
     // Make predictions in Hz using 'SYBIL.h5'
 }
+
 void SYBIL_vstiAudioProcessor::stopSYBIL() {
     juce::Logger::writeToLog("stopping her!");
     audioDeviceManager.removeAudioCallback(this);
@@ -182,7 +227,8 @@ void SYBIL_vstiAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
 
     // Initialize write position and counter
     writePos = 0;
-    counter = 0;
+    bpmCounter = 0;
+    hpcpCounter = 0;
 }
 
 void SYBIL_vstiAudioProcessor::releaseResources() {
@@ -267,19 +313,49 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     writePos = newWritePos;
     // std::cout << "newWritePos = " << newWritePos << std::endl;
 
-    counter += buffer.getNumSamples();
+    bpmCounter += buffer.getNumSamples();
 
-        if (counter >= bpmThreshold)
-        {
-            counter = 0;
+    if (bpmCounter >= getSampleRate())
+    {
+        bpmCounter = 0;
 
-            // Capture the audio data into a std::vector for BPM detection
-            std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
+        // Capture the audio data into a std::vector for BPM detection
+        std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
 
-            // Launch a new thread to perform BPM detection
-            bpmThread = std::thread(&SYBIL_vstiAudioProcessor::detectBPMThreaded, this, audioData);
-            bpmThread.detach(); // Let it run freely; we won't join it
+        // Launch a new thread to perform BPM detection
+        bpmThread = std::thread(&SYBIL_vstiAudioProcessor::detectBPMThreaded, this, audioData);
+        bpmThread.detach(); // Let it run freely; we won't join it
+    }
+
+    float currentBPM;
+    {
+        std::lock_guard<std::mutex> lock(bpmMutex);
+        currentBPM = *bpmPointer;
+    }
+    // Compute the number of samples for a sixteenth note based on current BPM
+    int samplesPerBeat = static_cast<int>(getSampleRate() * 60.0 / currentBPM); // samples for a quarter note
+    int samplesPerSixteenth = samplesPerBeat / 4; // Assuming 4 sixteenth notes per beat
+    int hopSize = samplesPerSixteenth;  // No overlap; adjust if you want overlap.
+
+    for (int startSample = 0; startSample + samplesPerSixteenth <= audioData.size(); startSample += hopSize) {
+        std::vector<float> frame(audioData.begin() + startSample, audioData.begin() + startSample + samplesPerSixteenth);
+        // Process this frame...
+    }
+
+    hpcpCounter += buffer.getNumSamples();
+
+    if (hpcpCounter >= samplesPerSixteenth) {
+        hpcpCounter = 0;
+
+        std::vector<float> audioDataForHPCP(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + samplesPerSixteenth);
+        std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
+
+        // Do something with hpcpValues...
+        for (float value : hpcpValues) {
+            std::cout << value << " ";
         }
+        std::cout << std::endl;
+    }
 
 }
 
@@ -291,6 +367,7 @@ void SYBIL_vstiAudioProcessor::detectBPMThreaded(std::vector<float> audioData)
     // Your existing detectBPM code
     float bpm = detectBPM(audioData);
     std::cout << "bpm = " << bpm << std::endl;
+    bpmPointer = &bpm;
     // Store the BPM value in a member variable, emit a change message, or whatever you need to do
 
     // Mutex will be automatically unlocked when lock goes out of scope
