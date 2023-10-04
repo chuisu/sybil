@@ -9,6 +9,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <thread>
+#include <mutex>
 
 //==============================================================================
 /**
@@ -33,6 +35,7 @@ public:
     void audioDeviceStopped() override;
 
     float detectBPM(std::vector<float>& audioBuffer);
+    void detectBPMThreaded(std::vector<float> audioData);
     void predictNote();
 
     juce::StringArray getInputDeviceNames();
@@ -40,7 +43,6 @@ public:
     void releaseResources() override;
 
     juce::AudioBuffer<float> ringBuffer;
-    int writePos = 0;
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
@@ -80,8 +82,12 @@ public:
 
 private:
     //==============================================================================
-
+    std::thread bpmThread; // Thread for BPM detection
+    std::mutex bpmMutex;   // Mutex for protecting shared data
+    int counter = 0;
+    int writePos = 0;
     double sampleRate = 0.0;
+    const int bpmThreshold = 258;
     juce::UndoManager undoManager;
     juce::AudioDeviceManager audioDeviceManager;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SYBIL_vstiAudioProcessor)

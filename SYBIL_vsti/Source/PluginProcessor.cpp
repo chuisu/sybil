@@ -31,8 +31,6 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
 #endif
 {
     audioDeviceManager.initialise(2, 2, nullptr, true);
-    ringBuffer.setSize(0, 1024);
-    ringBuffer.clear();
     essentia::init();
 }
 
@@ -153,6 +151,7 @@ float SYBIL_vstiAudioProcessor::detectBPM(std::vector<float>& audioBuffer) {
     rhythmExtractor->output("estimates").set(estimates);
     rhythmExtractor->output("bpmIntervals").set(bpmIntervals);
 
+
     // Compute BPM
     rhythmExtractor->compute();
 
@@ -160,7 +159,7 @@ float SYBIL_vstiAudioProcessor::detectBPM(std::vector<float>& audioBuffer) {
     pool.add("bpm", bpm);
 
     // Clean-up, if needed (Depends on how often you plan to use the algorithm)
-    delete rhythmExtractor;
+    //delete rhythmExtractor;
 
     return bpm;
 }
@@ -178,6 +177,12 @@ void SYBIL_vstiAudioProcessor::stopSYBIL() {
 void SYBIL_vstiAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+    // Assuming you want to allocate 5 seconds of audio buffer. Multiply sampleRate by 5 and by the number of channels.
+    ringBuffer.setSize(2, sampleRate * 5.0);
+
+    // Initialize write position and counter
+    writePos = 0;
+    counter = 0;
 }
 
 void SYBIL_vstiAudioProcessor::releaseResources() {
@@ -214,8 +219,6 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    int counter = 0;
-    const int bpmThreshold = 258;
 
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
@@ -227,36 +230,71 @@ void SYBIL_vstiAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    int newWritePos = (writePos + buffer.getNumSamples()) % ringBuffer.getNumSamples();
+
     // This is the place where you'd normally do the guts of your plugin's
     // audio processing...
     // Make sure to reset the state if your inner loop is processing
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumOutputChannels; ++channel)
-    {
-        // Your existing processing code here
 
-        // Copying from the incoming buffer to your ring buffer
-        ringBuffer.copyFrom(channel, writePos, buffer, channel, 0, buffer.getNumSamples());
+    for (int channel = 0; channel < totalNumOutputChannels; ++channel) {
+        // If there's enough space in the ring buffer to accommodate the incoming buffer
+        if (writePos + buffer.getNumSamples() <= ringBuffer.getNumSamples()) {
+            // Copy all samples from buffer to ringBuffer starting at writePos
+            ringBuffer.copyFrom(channel, writePos, buffer, channel, 0, buffer.getNumSamples());
+        } else {
+            // Handle case where writing buffer would exceed ringBuffer size
+
+            // Calculate the number of samples to the end of ringBuffer
+            const int samplesToEnd = ringBuffer.getNumSamples() - writePos;
+
+            // Calculate the remaining samples that will loop back to the beginning
+            const int samplesToBeginning = buffer.getNumSamples() - samplesToEnd;
+
+            // Copy samples to the end of the ringBuffer
+            ringBuffer.copyFrom(channel, writePos, buffer, channel, 0, samplesToEnd);
+
+            // Copy the remaining samples to the beginning of the ringBuffer
+            ringBuffer.copyFrom(channel, 0, buffer, channel, samplesToEnd, samplesToBeginning);
+        }
+
     }
 
-    writePos = (writePos + buffer.getNumSamples()) % ringBuffer.getNumSamples();
+    // Update writePos for the next round
+    // std::cout << "writePos = " << writePos << std::endl;
+    writePos = newWritePos;
+    // std::cout << "newWritePos = " << newWritePos << std::endl;
 
-    counter++;
-    if (counter >= bpmThreshold)
-    {
-        // Convert ringBuffer to std::vector<float> if your detectBPM function requires it
-        std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
+    counter += buffer.getNumSamples();
 
-        float bpm = detectBPM(audioData);
-        std::cout << bpm;
+        if (counter >= bpmThreshold)
+        {
+            counter = 0;
 
-        counter = 0;
-    }
+            // Capture the audio data into a std::vector for BPM detection
+            std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
+
+            // Launch a new thread to perform BPM detection
+            bpmThread = std::thread(&SYBIL_vstiAudioProcessor::detectBPMThreaded, this, audioData);
+            bpmThread.detach(); // Let it run freely; we won't join it
+        }
+
 }
 
+void SYBIL_vstiAudioProcessor::detectBPMThreaded(std::vector<float> audioData)
+{
+    // Lock the mutex while performing BPM detection
+    std::lock_guard<std::mutex> lock(bpmMutex);
 
+    // Your existing detectBPM code
+    float bpm = detectBPM(audioData);
+    std::cout << "bpm = " << bpm << std::endl;
+    // Store the BPM value in a member variable, emit a change message, or whatever you need to do
+
+    // Mutex will be automatically unlocked when lock goes out of scope
+}
 
 
 //==============================================================================
