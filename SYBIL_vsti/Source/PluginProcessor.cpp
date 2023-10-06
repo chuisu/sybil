@@ -310,12 +310,23 @@ void SYBIL_vstiAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     // Assuming you want to allocate 5 seconds of audio buffer. Multiply sampleRate by 5 and by the number of channels.
     ringBuffer.setSize(2, sampleRate * 5.0);
 
+
     // Initialize write position and counter
     writePos = 0;
     bpmCounter = 0;
     hpcpCounter = 0;
 
     sineOsc.initialise([](float x) { return std::sin(x); }, 128);
+
+    adsrParams.attack = 0.1; // Adjust as necessary
+    adsrParams.decay = 0.1;
+    adsrParams.sustain = 1.0; // Full sustain
+    adsrParams.release = 0.5;
+    adsr.setSampleRate(sampleRate);
+    adsr.setParameters(adsrParams);
+
+    adsr.reset();
+
 }
 
 void SYBIL_vstiAudioProcessor::releaseResources() {
@@ -394,24 +405,27 @@ void SYBIL_vstiAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
         float predictedFrequency = predictNote(hpcpValues);
 
-        std::cout << "predicted frequency = " << predictedFrequency << std::endl;
+        // std::cout << "predicted frequency = " << predictedFrequency << std::endl;
         if (predictedFrequency < 130.0f || predictedFrequency > 1046.5f || predictedFrequency < 0) {
             predictedFrequency = 0.0f;
         }
         std::cout << "adjusted predicted frequency = " << predictedFrequency << std::endl;
 
-        sineOsc.setFrequency(predictedFrequency);
+        if (predictedFrequency == 0.0f) {
+            if (adsr.isActive()) {
+                adsr.noteOff();
+            }
+        } else {
+            sineOsc.setFrequency(predictedFrequency);
+            adsr.noteOn();
 
-        for (float value : hpcpValues) {
-            std::cout << value << " ";
-        }
-        std::cout << std::endl;
+            for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+                float sineSample = sineOsc.processSample(0.0f); // 0.0f because we're not modulating the sine wave with any input
+                float envValue = adsr.getNextSample();
 
-        // play the pitch
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
-            float sineSample = sineOsc.processSample(0.0f); // 0.0f because we're not modulating the sine wave with any input
-            for (int channel = 0; channel < totalNumOutputChannels; ++channel) {
-                buffer.addSample(channel, sample, sineSample);
+                for (int channel = 0; channel < totalNumOutputChannels; ++channel) {
+                    buffer.addSample(channel, sample, sineSample * envValue);
+                }
             }
         }
     }

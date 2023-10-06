@@ -91,6 +91,9 @@ private:
     //juce::AudioDeviceManager audioDeviceManager;
 
     juce::dsp::Oscillator<float> sineOsc;
+    juce::ADSR adsr;
+    juce::ADSR::Parameters adsrParams;
+
     std::thread bpmThread; // Thread for BPM detection
     std::mutex bpmMutex;   // Mutex for protecting shared data
     std::condition_variable bpmCondVar;
