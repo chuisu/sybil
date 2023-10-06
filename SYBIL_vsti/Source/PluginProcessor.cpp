@@ -35,6 +35,7 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
     audioDeviceManager.initialise(2, 2, nullptr, true);
     essentia::init();
     bpmPointer = &bpm;
+    loadTFModel(modelFile.getFullPathName().toStdString());
 }
 
 SYBIL_vstiAudioProcessor::~SYBIL_vstiAudioProcessor() {
@@ -94,6 +95,7 @@ void SYBIL_vstiAudioProcessor::changeProgramName (int index, const juce::String&
 
 //==============================================================================
 
+/*
 juce::StringArray SYBIL_vstiAudioProcessor::getInputDeviceNames()
 {
     juce::StringArray deviceNames;
@@ -108,7 +110,7 @@ juce::StringArray SYBIL_vstiAudioProcessor::getInputDeviceNames()
     }
 
     return deviceNames;
-}
+} */
 
 void SYBIL_vstiAudioProcessor::startSYBIL() {
     juce::Logger::writeToLog("we have liftoff!");
@@ -119,6 +121,10 @@ void SYBIL_vstiAudioProcessor::stopSYBIL() {
     juce::Logger::writeToLog("stopping her!");
     isPredicting = false;  // set the flag off to stop prediction
     audioDeviceManager.removeAudioCallback(this);
+    if (session) {
+        delete session;
+        session = nullptr;
+    }
     // Additional cleanup code
 }
 
@@ -128,10 +134,6 @@ void SYBIL_vstiAudioProcessor::audioDeviceAboutToStart(juce::AudioIODevice* devi
 
 void SYBIL_vstiAudioProcessor::audioDeviceStopped() {
     sampleRate = 0;
-}
-
-void SYBIL_vstiAudioProcessor::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) {
-
 }
 
 float SYBIL_vstiAudioProcessor::detectBPM(std::vector<float>& audioBuffer) {
@@ -230,14 +232,23 @@ std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& au
     return hpcpValues;
 }
 
-void SYBIL_vstiAudioProcessor::predictNote() {
-    tensorflow::Session* session;
-    tensorflow::Status status = tensorflow::NewSession(tensorflow::SessionOptions(), &session);
-    if (!status.ok()) {
-        std::cerr << status.ToString() << std::endl;
-    } else {
-        std::cout << "TensorFlow session created successfully." << std::endl;
+float SYBIL_vstiAudioProcessor::predictNote(const std::vector<float>& hpcpValues) {
+    // Create an input tensor
+    tensorflow::Tensor input_tensor(tensorflow::DT_FLOAT, tensorflow::TensorShape({1, static_cast<int64_t>(hpcpValues.size())}));
+    auto input_tensor_mapped = input_tensor.tensor<float, 2>();
+    for (int i = 0; i < hpcpValues.size(); i++) {
+        input_tensor_mapped(0, i) = hpcpValues[i];
     }
+
+    // Run the model
+    std::vector<tensorflow::Tensor> outputs;
+    tensorflow::Status runStatus = session->Run({{"input_name", input_tensor}}, {"output_name"}, {}, &outputs);
+    if (!runStatus.ok()) {
+        // Handle error here, for example:
+        juce::Logger::writeToLog(runStatus.ToString());
+    }
+    auto output = outputs[0].tensor<float, 2>();
+    return output(0, 0);  // assuming a single output value; adjust if your model outputs differently
 }
 
 
@@ -346,6 +357,7 @@ void SYBIL_vstiAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         hpcpCounter = 0;
         std::vector<float> audioDataForHPCP(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + samplesPerSixteenth);
         std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
+        float predictedNote = predictNote(hpcpValues);
 
         for (float value : hpcpValues) {
             std::cout << value << " ";

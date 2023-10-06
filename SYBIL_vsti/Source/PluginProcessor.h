@@ -39,7 +39,7 @@ public:
     float detectBPM(std::vector<float>& audioBuffer);
     void detectBPMThreaded(std::vector<float> audioData);
     std::vector<float> computeHPCPs(std::vector<float>& audioData);
-    void predictNote();
+    float predictNote(const std::vector<float>& hpcpValues);
 
     juce::StringArray getInputDeviceNames();
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -95,9 +95,12 @@ private:
     std::vector<float> threadAudioData;  // Buffer for data that should be processed by the thread
     float bpm = 120.0;
     float* bpmPointer;
-    bool isPredicting;
+    bool isPredicting = false;
 
-    std::unique_ptr<tensorflow::Session> session;
+    tensorflow::Session* session;
+
+    juce::File binaryLocation = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    juce::File modelFile = binaryLocation.getSiblingFile("sybil_model/saved_model.pb");
 
     int bpmCounter = 0;
     int hpcpCounter = 0;
