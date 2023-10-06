@@ -32,7 +32,7 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
 
 #endif
 {
-    // audioDeviceManager.initialise(2, 2, nullptr, true);
+    //audioDeviceManager.initialise(1, 1, nullptr, false, {}, nullptr);
     essentia::init();
     bpmPointer = &bpm;
     loadTFModel(modelDir.getFullPathName().toStdString());
@@ -120,7 +120,7 @@ void SYBIL_vstiAudioProcessor::startSYBIL() {
 void SYBIL_vstiAudioProcessor::stopSYBIL() {
     juce::Logger::writeToLog("stopping her!");
     isPredicting = false;  // set the flag off to stop prediction
-    audioDeviceManager.removeAudioCallback(this);
+    // audioDeviceManager.removeAudioCallback(this);
     if (session) {
         delete session;
         session = nullptr;

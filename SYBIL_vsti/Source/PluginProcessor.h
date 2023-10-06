@@ -32,7 +32,7 @@ public:
     void startSYBIL();
     void stopSYBIL();
 
-    void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples);
+    // void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples);
     void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
     void audioDeviceStopped() override;
 
@@ -87,6 +87,8 @@ public:
 
 private:
     //==============================================================================
+    //juce::AudioDeviceManager audioDeviceManager;
+
     std::thread bpmThread; // Thread for BPM detection
     std::mutex bpmMutex;   // Mutex for protecting shared data
     std::condition_variable bpmCondVar;
@@ -110,6 +112,5 @@ private:
     double sampleRate = 0.0;
     const int bpmThreshold = 258;
     juce::UndoManager undoManager;
-    juce::AudioDeviceManager audioDeviceManager;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SYBIL_vstiAudioProcessor)
 };

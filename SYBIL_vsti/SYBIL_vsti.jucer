@@ -2,8 +2,8 @@
 
 <JUCERPROJECT id="Frfqxi" name="SYBIL_vsti" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1"
-              pluginVST3Category="Fx,Instrument,Synth" pluginCharacteristicsValue="pluginIsSynth"
-              pluginFormats="buildAU,buildStandalone,buildVST3" headerPath="/usr/local/include/essentia/&#10;&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
+              pluginVST3Category="Fx,Instrument" pluginFormats="buildAU,buildStandalone,buildVST3"
+              headerPath="/usr/local/include/essentia/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
               pluginChannelConfigs="{1,1}" pluginManufacturer="bran">
   <MAINGROUP id="iXTqtu" name="SYBIL_vsti">
     <GROUP id="{EE710B69-D06A-94D6-3DE2-F340073A224D}" name="Source">
