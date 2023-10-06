@@ -32,7 +32,7 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
 
 #endif
 {
-    audioDeviceManager.initialise(2, 2, nullptr, true);
+    // audioDeviceManager.initialise(2, 2, nullptr, true);
     essentia::init();
     bpmPointer = &bpm;
     loadTFModel(modelDir.getFullPathName().toStdString());
@@ -231,7 +231,7 @@ std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& au
 
     return hpcpValues;
 }
-
+/*
 void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
     const std::string model_dir = modelDir.getFullPathName().toStdString();
     const std::string tag = "serve"; // typically "serve" for inference
@@ -247,20 +247,38 @@ void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
         // handle error, for example, you can set a flag or throw an exception
     }
 }
+*/
+
+void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
+    const std::string model_dir = modelPath;
+    const std::string tag = "serve"; // typically "serve" for inference
+
+    tensorflow::SessionOptions session_options;
+    tensorflow::RunOptions run_options;
+
+    tensorflow::Status status = tensorflow::LoadSavedModel(session_options, run_options, model_dir, {tag}, &bundle);
+
+    if (!status.ok()) {
+        juce::Logger::writeToLog("Error loading the model: " + status.ToString());
+    }
+}
 
 float SYBIL_vstiAudioProcessor::predictNote(const std::vector<float>& hpcpValues) {
+    // Ensure the hpcpValues is of size 12
+    assert(hpcpValues.size() == 12);
+
     // Create an input tensor
-    tensorflow::Tensor input_tensor(tensorflow::DT_FLOAT, tensorflow::TensorShape({1, static_cast<int64_t>(hpcpValues.size())}));
+    tensorflow::Tensor input_tensor(tensorflow::DT_FLOAT, tensorflow::TensorShape({1, 12}));
     auto input_tensor_mapped = input_tensor.tensor<float, 2>();
-    for (int i = 0; i < hpcpValues.size(); i++) {
+    for (int i = 0; i < 12; i++) {
         input_tensor_mapped(0, i) = hpcpValues[i];
     }
 
     // Run the model
     std::vector<tensorflow::Tensor> outputs;
 
-    if (session && status.ok()) {
-        tensorflow::Status runStatus = session->Run({{"dense_input:0", input_tensor}}, {"dense_6:0"}, {}, &outputs);
+    if (bundle.session) {
+        tensorflow::Status runStatus = bundle.session->Run({{"serving_default_dense_input:0", input_tensor}}, {"StatefulPartitionedCall:0"}, {}, &outputs);
         if (!runStatus.ok()) {
             juce::Logger::writeToLog(runStatus.ToString());
             return -1.0f;  // Consider returning a default or error value.
@@ -278,7 +296,11 @@ float SYBIL_vstiAudioProcessor::predictNote(const std::vector<float>& hpcpValues
     }
 
     auto output = outputs[0].tensor<float, 2>();
-    return output(0, 0);  // assuming a single output value; adjust if your model outputs differently
+    // Assuming you have a single output value; adjust if your model outputs differently.
+    float predictedFrequency = output(0, 0);
+
+    std::cout << "Predicted Frequency: " << predictedFrequency << std::endl;
+    return predictedFrequency;
 }
 
 //==============================================================================
@@ -368,7 +390,9 @@ void SYBIL_vstiAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         hpcpCounter = 0;
         std::vector<float> audioDataForHPCP(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + samplesPerSixteenth);
         std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
-        float predictedNote = predictNote(hpcpValues);
+        float predictedFrequency = predictNote(hpcpValues);
+
+        std::cout << predictedFrequency << std::endl;
 
         for (float value : hpcpValues) {
             std::cout << value << " ";

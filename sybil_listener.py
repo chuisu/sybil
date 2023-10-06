@@ -11,25 +11,52 @@ from main import custom_loss
 
 # global rate in seconds (controls duration of note, time.sleep(), and fade time
 rate = 0.3
-
-# setup PyAudio
-p = pyaudio.PyAudio()
-stream = p.open(format=pyaudio.paFloat32,
-                channels=1,
-                rate=48000,
-                input=True,
-                frames_per_buffer=1024,
-                input_device_index=13)
-
 rhythm_extractor = es.RhythmExtractor2013()
 w = es.Windowing(type='hann')
 spectrum = es.Spectrum()
 spectral_peaks = es.SpectralPeaks(orderBy='magnitude')
 hpcp = es.HPCP()
 
-model = tf.keras.models.load_model('sybil.h5', custom_objects={'custom_loss': custom_loss})
+# model = tf.keras.models.load_model('sybil.h5', custom_objects={'custom_loss': custom_loss})
+model = tf.saved_model.load('sybil_model')
+infer = model.signatures["serving_default"]
 previous_prediction = np.array([[1]])
 
+def audio_callback(indata, frames, time, status):
+    np.set_printoptions(threshold=sys.maxsize)
+    audio_samples = indata[:, 0]
+    windowed = w(audio_samples)
+    # windowed = w(indata[:, 0])  # take the first channel
+    bpm, ticks, confidence, estimates, bpmIntervals = rhythm_extractor(windowed)
+    spec = spectrum(windowed)
+    frequencies, magnitudes = spectral_peaks(spec)
+    hpcps = hpcp(frequencies, magnitudes)
+    hpcps = np.expand_dims(hpcps, axis=0)
+    #prediction = model.predict(hpcps)
+    input_tensor = tf.convert_to_tensor(hpcps, dtype=tf.float32)
+    predictions = infer(input_tensor)
+    print(predictions.keys())
+    prediction = predictions['dense_6'].numpy()
+
+    if prediction < 130:
+        prediction = previous_prediction
+
+    print(prediction)
+    freq = prediction
+    t = np.linspace(0, rate, int(44100 * rate), endpoint=False)
+    sound = np.sin(2 * np.pi * freq * t).T
+    sound = sound.ravel()
+    sound *= 32767 / np.max(np.abs(sound))
+    sound = sound.astype(np.int16)
+    sd.play(sound)
+    # time.sleep(rate)
+
+# Start the streaming with sounddevice
+with sd.InputStream(samplerate=44100, channels=1, blocksize=1024, callback=audio_callback):
+    print("Press Ctrl+C to stop the stream")
+    sd.sleep(1000000000)  # This keeps the streaming active. Adjust sleep duration as needed.
+
+'''
 def apply_crossfade(previous_prediction, crossfade_ratio=0.1):
     # Convert the input data to float
     previous_prediction = previous_prediction.astype(np.float64)
@@ -88,3 +115,4 @@ while True:
     sd.play(crossfaded_note, blocking=True)
     previous_prediction = prediction
     time.sleep(rate)
+'''
