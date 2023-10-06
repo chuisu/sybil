@@ -314,6 +314,8 @@ void SYBIL_vstiAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     writePos = 0;
     bpmCounter = 0;
     hpcpCounter = 0;
+
+    sineOsc.initialise([](float x) { return std::sin(x); }, 128);
 }
 
 void SYBIL_vstiAudioProcessor::releaseResources() {
@@ -392,12 +394,26 @@ void SYBIL_vstiAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
         float predictedFrequency = predictNote(hpcpValues);
 
-        std::cout << predictedFrequency << std::endl;
+        std::cout << "predicted frequency = " << predictedFrequency << std::endl;
+        if (predictedFrequency < 130.0f || predictedFrequency > 1046.5f || predictedFrequency < 0) {
+            predictedFrequency = 0.0f;
+        }
+        std::cout << "adjusted predicted frequency = " << predictedFrequency << std::endl;
+
+        sineOsc.setFrequency(predictedFrequency);
 
         for (float value : hpcpValues) {
             std::cout << value << " ";
         }
         std::cout << std::endl;
+
+        // play the pitch
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+            float sineSample = sineOsc.processSample(0.0f); // 0.0f because we're not modulating the sine wave with any input
+            for (int channel = 0; channel < totalNumOutputChannels; ++channel) {
+                buffer.addSample(channel, sample, sineSample);
+            }
+        }
     }
 }
 

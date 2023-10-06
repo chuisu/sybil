@@ -9,6 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <juce_dsp/juce_dsp.h>
 #include <thread>
 #include <mutex>
 #include <tensorflow/core/public/session.h>
@@ -89,6 +90,7 @@ private:
     //==============================================================================
     //juce::AudioDeviceManager audioDeviceManager;
 
+    juce::dsp::Oscillator<float> sineOsc;
     std::thread bpmThread; // Thread for BPM detection
     std::mutex bpmMutex;   // Mutex for protecting shared data
     std::condition_variable bpmCondVar;
