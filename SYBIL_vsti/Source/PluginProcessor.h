@@ -100,7 +100,6 @@ private:
     tensorflow::Session* session;
     tensorflow::SavedModelBundle bundle;
     tensorflow::Status status;
-
     juce::File binaryLocation = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
     juce::File modelFile = binaryLocation.getSiblingFile("sybil_model/saved_model.pb");
     juce::File modelDir = modelFile.getParentDirectory();

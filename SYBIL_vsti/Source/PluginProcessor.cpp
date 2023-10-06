@@ -258,14 +258,24 @@ float SYBIL_vstiAudioProcessor::predictNote(const std::vector<float>& hpcpValues
 
     // Run the model
     std::vector<tensorflow::Tensor> outputs;
+
     if (session && status.ok()) {
         tensorflow::Status runStatus = session->Run({{"dense_input:0", input_tensor}}, {"dense_6:0"}, {}, &outputs);
         if (!runStatus.ok()) {
-            // Handle error here, for example:
             juce::Logger::writeToLog(runStatus.ToString());
+            return -1.0f;  // Consider returning a default or error value.
         }
     }
 
+    if (outputs.empty()) {
+        juce::Logger::writeToLog("No outputs produced by model.");
+        return -1.0f;  // Consider returning a default or error value.
+    }
+
+    if (outputs[0].dtype() != tensorflow::DT_FLOAT || outputs[0].dims() != 2) {
+        juce::Logger::writeToLog("Unexpected output tensor type or shape.");
+        return -1.0f;  // Consider returning a default or error value.
+    }
 
     auto output = outputs[0].tensor<float, 2>();
     return output(0, 0);  // assuming a single output value; adjust if your model outputs differently
