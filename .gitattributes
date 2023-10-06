@@ -1,1 +1,2 @@
+*.a filter=lfs diff=lfs merge=lfs -text
 SYBIL_vsti/Libraries/libavcodec.a filter=lfs diff=lfs merge=lfs -text
