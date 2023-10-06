@@ -3,8 +3,8 @@
 <JUCERPROJECT id="Frfqxi" name="SYBIL_vsti" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1"
               pluginVST3Category="Fx,Instrument,Synth" pluginCharacteristicsValue="pluginIsSynth"
-              pluginFormats="buildAU,buildStandalone,buildVST3" headerPath="/usr/local/include/essentia/"
-              pluginChannelConfigs="{1,1}">
+              pluginFormats="buildAU,buildStandalone,buildVST3" headerPath="/usr/local/include/essentia/&#10;&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
+              pluginChannelConfigs="{1,1}" pluginManufacturer="bran">
   <MAINGROUP id="iXTqtu" name="SYBIL_vsti">
     <GROUP id="{EE710B69-D06A-94D6-3DE2-F340073A224D}" name="Source">
       <FILE id="DMm2nF" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -18,12 +18,12 @@
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
   <EXPORTFORMATS>
-    <CODEBLOCKS_LINUX targetFolder="Builds/CodeBlocksLinux" externalLibraries="essentia">
+    <CODEBLOCKS_LINUX targetFolder="Builds/CodeBlocksLinux" externalLibraries="essentia&#10;tensorflow_cc">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/"
-                       libraryPath="/usr/local/lib/"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/"
-                       libraryPath="/usr/local/lib/"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
+                       libraryPath="/usr/local/lib/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
+                       libraryPath="/usr/local/lib/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../JUCE/modules"/>
@@ -40,12 +40,12 @@
         <MODULEPATH id="juce_gui_extra" path="../../JUCE/modules"/>
       </MODULEPATHS>
     </CODEBLOCKS_LINUX>
-    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" externalLibraries="essentia">
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" externalLibraries="essentia&#10;tensorflow_cc">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/"
-                       libraryPath="/usr/local/lib/"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/"
-                       libraryPath="/usr/local/lib/"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
+                       libraryPath="/usr/local/lib/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="SYBIL_vsti" headerPath="/usr/local/include/essentia/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/include/"
+                       libraryPath="/usr/local/lib/&#10;/home/b/anaconda3/envs/tf/lib/python3.9/site-packages/tensorflow/"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../JUCE/modules"/>

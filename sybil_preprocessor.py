@@ -14,7 +14,6 @@ from tensorflow.keras.layers import Activation
 from tensorflow.keras import backend as K
 from tensorflow.keras.utils import get_custom_objects
 
-
 def sybil_preprocessor(file_for_preprocessing):
     audio_file = file_for_preprocessing
     loader = es.MonoLoader(filename=audio_file)

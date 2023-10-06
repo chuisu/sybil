@@ -15,6 +15,8 @@
 #include <essentia/algorithmfactory.h>
 #include <essentia/essentiamath.h>
 #include <essentia/pool.h>
+#include <tensorflow/core/public/session.h>
+#include <tensorflow/core/platform/env.h>
 
 //==============================================================================
 SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
@@ -110,7 +112,14 @@ juce::StringArray SYBIL_vstiAudioProcessor::getInputDeviceNames()
 
 void SYBIL_vstiAudioProcessor::startSYBIL() {
     juce::Logger::writeToLog("we have liftoff!");
-    // Initialization code here
+    isPredicting = true;
+}
+
+void SYBIL_vstiAudioProcessor::stopSYBIL() {
+    juce::Logger::writeToLog("stopping her!");
+    isPredicting = false;  // set the flag off to stop prediction
+    audioDeviceManager.removeAudioCallback(this);
+    // Additional cleanup code
 }
 
 void SYBIL_vstiAudioProcessor::audioDeviceAboutToStart(juce::AudioIODevice* device) {
@@ -168,6 +177,12 @@ float SYBIL_vstiAudioProcessor::detectBPM(std::vector<float>& audioBuffer) {
 std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& audioData) {
     using namespace essentia;
     using namespace essentia::standard;
+    // pad the audio in case it's odd
+    int size = audioData.size();
+        if (size % 2 != 0) {
+        audioData.push_back(0); // zero-padding
+    }
+
     AlgorithmFactory& factory = AlgorithmFactory::instance();
 
     // Declare algorithms
@@ -216,13 +231,31 @@ std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& au
 }
 
 void SYBIL_vstiAudioProcessor::predictNote() {
-    // Make predictions in Hz using 'SYBIL.h5'
+    tensorflow::Session* session;
+    tensorflow::Status status = tensorflow::NewSession(tensorflow::SessionOptions(), &session);
+    if (!status.ok()) {
+        std::cerr << status.ToString() << std::endl;
+    } else {
+        std::cout << "TensorFlow session created successfully." << std::endl;
+    }
 }
 
-void SYBIL_vstiAudioProcessor::stopSYBIL() {
-    juce::Logger::writeToLog("stopping her!");
-    audioDeviceManager.removeAudioCallback(this);
-    // Additional cleanup code
+void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
+    tensorflow::Status status = tensorflow::NewSession(tensorflow::SessionOptions(), &session);
+    if (!status.ok()) {
+        // Handle error
+    }
+
+    tensorflow::GraphDef graph_def;
+    status = tensorflow::ReadBinaryProto(tensorflow::Env::Default(), modelPath, &graph_def);
+    if (!status.ok()) {
+        // Handle error
+    }
+
+    status = session->Create(graph_def);
+    if (!status.ok()) {
+        // Handle error
+    }
 }
 
 //==============================================================================
@@ -326,12 +359,8 @@ void SYBIL_vstiAudioProcessor::detectBPMThreaded(std::vector<float> audioData)
     std::lock_guard<std::mutex> lock(bpmMutex);
 
     // Your existing detectBPM code
-    float bpm = detectBPM(audioData);
+    bpm = detectBPM(audioData);
     std::cout << "bpm = " << bpm << std::endl;
-    bpmPointer = &bpm;
-    // Store the BPM value in a member variable, emit a change message, or whatever you need to do
-
-    // Mutex will be automatically unlocked when lock goes out of scope
 }
 
 

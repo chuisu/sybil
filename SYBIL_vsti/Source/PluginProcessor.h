@@ -11,6 +11,8 @@
 #include <JuceHeader.h>
 #include <thread>
 #include <mutex>
+#include <tensorflow/core/public/session.h>
+#include <tensorflow/core/platform/env.h>
 
 //==============================================================================
 /**
@@ -42,6 +44,8 @@ public:
     juce::StringArray getInputDeviceNames();
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
+
+    void loadTFModel(const std::string& modelPath);
 
     juce::AudioBuffer<float> ringBuffer;
 
@@ -91,6 +95,9 @@ private:
     std::vector<float> threadAudioData;  // Buffer for data that should be processed by the thread
     float bpm = 120.0;
     float* bpmPointer;
+    bool isPredicting;
+
+    std::unique_ptr<tensorflow::Session> session;
 
     int bpmCounter = 0;
     int hpcpCounter = 0;
