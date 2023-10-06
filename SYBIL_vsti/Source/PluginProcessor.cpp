@@ -35,7 +35,7 @@ SYBIL_vstiAudioProcessor::SYBIL_vstiAudioProcessor()
     audioDeviceManager.initialise(2, 2, nullptr, true);
     essentia::init();
     bpmPointer = &bpm;
-    loadTFModel(modelFile.getFullPathName().toStdString());
+    loadTFModel(modelDir.getFullPathName().toStdString());
 }
 
 SYBIL_vstiAudioProcessor::~SYBIL_vstiAudioProcessor() {
@@ -232,6 +232,22 @@ std::vector<float> SYBIL_vstiAudioProcessor::computeHPCPs(std::vector<float>& au
     return hpcpValues;
 }
 
+void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
+    const std::string model_dir = modelDir.getFullPathName().toStdString();
+    const std::string tag = "serve"; // typically "serve" for inference
+
+    tensorflow::SessionOptions session_options;
+    tensorflow::RunOptions run_options;
+
+    tensorflow::Status status = tensorflow::LoadSavedModel(
+        session_options, run_options, model_dir, {tag}, &bundle);
+
+    if (!status.ok()) {
+        juce::Logger::writeToLog("Error loading the model: " + status.ToString());
+        // handle error, for example, you can set a flag or throw an exception
+    }
+}
+
 float SYBIL_vstiAudioProcessor::predictNote(const std::vector<float>& hpcpValues) {
     // Create an input tensor
     tensorflow::Tensor input_tensor(tensorflow::DT_FLOAT, tensorflow::TensorShape({1, static_cast<int64_t>(hpcpValues.size())}));
@@ -242,32 +258,17 @@ float SYBIL_vstiAudioProcessor::predictNote(const std::vector<float>& hpcpValues
 
     // Run the model
     std::vector<tensorflow::Tensor> outputs;
-    tensorflow::Status runStatus = session->Run({{"input_name", input_tensor}}, {"output_name"}, {}, &outputs);
-    if (!runStatus.ok()) {
-        // Handle error here, for example:
-        juce::Logger::writeToLog(runStatus.ToString());
+    if (session && status.ok()) {
+        tensorflow::Status runStatus = session->Run({{"dense_input:0", input_tensor}}, {"dense_6:0"}, {}, &outputs);
+        if (!runStatus.ok()) {
+            // Handle error here, for example:
+            juce::Logger::writeToLog(runStatus.ToString());
+        }
     }
+
+
     auto output = outputs[0].tensor<float, 2>();
     return output(0, 0);  // assuming a single output value; adjust if your model outputs differently
-}
-
-
-void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
-    tensorflow::Status status = tensorflow::NewSession(tensorflow::SessionOptions(), &session);
-    if (!status.ok()) {
-        // Handle error
-    }
-
-    tensorflow::GraphDef graph_def;
-    status = tensorflow::ReadBinaryProto(tensorflow::Env::Default(), modelPath, &graph_def);
-    if (!status.ok()) {
-        // Handle error
-    }
-
-    status = session->Create(graph_def);
-    if (!status.ok()) {
-        // Handle error
-    }
 }
 
 //==============================================================================

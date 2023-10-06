@@ -13,7 +13,7 @@
 #include <mutex>
 #include <tensorflow/core/public/session.h>
 #include <tensorflow/core/platform/env.h>
-
+#include "tensorflow/cc/saved_model/loader.h"
 //==============================================================================
 /**
 */
@@ -44,8 +44,8 @@ public:
     juce::StringArray getInputDeviceNames();
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
-
     void loadTFModel(const std::string& modelPath);
+
 
     juce::AudioBuffer<float> ringBuffer;
 
@@ -98,9 +98,12 @@ private:
     bool isPredicting = false;
 
     tensorflow::Session* session;
+    tensorflow::SavedModelBundle bundle;
+    tensorflow::Status status;
 
     juce::File binaryLocation = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
     juce::File modelFile = binaryLocation.getSiblingFile("sybil_model/saved_model.pb");
+    juce::File modelDir = modelFile.getParentDirectory();
 
     int bpmCounter = 0;
     int hpcpCounter = 0;
