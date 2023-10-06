@@ -240,6 +240,7 @@ void SYBIL_vstiAudioProcessor::predictNote() {
     }
 }
 
+
 void SYBIL_vstiAudioProcessor::loadTFModel(const std::string& modelPath) {
     tensorflow::Status status = tensorflow::NewSession(tensorflow::SessionOptions(), &session);
     if (!status.ok()) {
