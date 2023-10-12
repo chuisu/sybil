@@ -41,13 +41,13 @@
  #define JucePlugin_Enable_ARA             0
 #endif
 #ifndef  JucePlugin_Name
- #define JucePlugin_Name                   "SYBIL_vsti"
+ #define JucePlugin_Name                   "SYBIL"
 #endif
 #ifndef  JucePlugin_Desc
- #define JucePlugin_Desc                   "SYBIL_vsti"
+ #define JucePlugin_Desc                   "SYBIL"
 #endif
 #ifndef  JucePlugin_Manufacturer
- #define JucePlugin_Manufacturer           "bran"
+ #define JucePlugin_Manufacturer           "mitamu"
 #endif
 #ifndef  JucePlugin_ManufacturerWebsite
  #define JucePlugin_ManufacturerWebsite    "www.yourcompany.com"
@@ -101,19 +101,19 @@
  #define JucePlugin_AUSubType              JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_AUExportPrefix
- #define JucePlugin_AUExportPrefix         SYBIL_vstiAU
+ #define JucePlugin_AUExportPrefix         SYBILAU
 #endif
 #ifndef  JucePlugin_AUExportPrefixQuoted
- #define JucePlugin_AUExportPrefixQuoted   "SYBIL_vstiAU"
+ #define JucePlugin_AUExportPrefixQuoted   "SYBILAU"
 #endif
 #ifndef  JucePlugin_AUManufacturerCode
  #define JucePlugin_AUManufacturerCode     JucePlugin_ManufacturerCode
 #endif
 #ifndef  JucePlugin_CFBundleIdentifier
- #define JucePlugin_CFBundleIdentifier     com.yourcompany.SYBIL_vsti
+ #define JucePlugin_CFBundleIdentifier     com.yourcompany.SYBIL
 #endif
 #ifndef  JucePlugin_AAXIdentifier
- #define JucePlugin_AAXIdentifier          com.yourcompany.SYBIL_vsti
+ #define JucePlugin_AAXIdentifier          com.yourcompany.SYBIL
 #endif
 #ifndef  JucePlugin_AAXManufacturerCode
  #define JucePlugin_AAXManufacturerCode    JucePlugin_ManufacturerCode
@@ -137,7 +137,7 @@
  #define JucePlugin_IAASubType             JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_IAAName
- #define JucePlugin_IAAName                "bran: SYBIL_vsti"
+ #define JucePlugin_IAAName                "mitamu: SYBIL"
 #endif
 #ifndef  JucePlugin_VSTNumMidiInputs
  #define JucePlugin_VSTNumMidiInputs       16
@@ -152,10 +152,10 @@
  #define JucePlugin_ARATransformationFlags  0
 #endif
 #ifndef  JucePlugin_ARAFactoryID
- #define JucePlugin_ARAFactoryID           "com.yourcompany.SYBIL_vsti.factory"
+ #define JucePlugin_ARAFactoryID           "com.yourcompany.SYBIL.factory"
 #endif
 #ifndef  JucePlugin_ARADocumentArchiveID
- #define JucePlugin_ARADocumentArchiveID   "com.yourcompany.SYBIL_vsti.aradocumentarchive.1.0.0"
+ #define JucePlugin_ARADocumentArchiveID   "com.yourcompany.SYBIL.aradocumentarchive.1.0.0"
 #endif
 #ifndef  JucePlugin_ARACompatibleArchiveIDs
  #define JucePlugin_ARACompatibleArchiveIDs  ""
