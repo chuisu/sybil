@@ -314,9 +314,9 @@ void SYBIL_vstiAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     bpmCounter = 0;
     hpcpCounter = 0;
 
-    sineOsc.initialise([](float x) { return std::sin(x); }, 64);
+    sineOsc.initialise([](float x) { return std::sin(x); }, 128);
 
-    adsrParams.attack = 0.06; // Adjust as necessary
+    adsrParams.attack = 0.1; // Adjust as necessary
     adsrParams.decay = 0.1;
     adsrParams.sustain = 1.0; // Full sustain
     adsrParams.release = 0.1;
@@ -395,83 +395,40 @@ void SYBIL_vstiAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     bpmCounter += inputBuffer.getNumSamples();
     if (bpmCounter >= getSampleRate()) {
-        bpmCounter = 0;  // Reset counter
-
-        // Copy audio data from the ring buffer for BPM detection
+        bpmCounter = 0;
         std::vector<float> audioData(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + ringBuffer.getNumSamples());
-
-        // Start the separate thread for BPM detection
-        std::thread bpmThread(&SYBIL_vstiAudioProcessor::detectBPMThreaded, this, audioData);
-        bpmThread.detach();
+        currentBPM = detectBPM(audioData);
+        std::cout << "bpm = " << currentBPM << std::endl;
     }
 
-    std::vector<float> audioDataForHPCP;
-    audioDataForHPCP.reserve(samplesPerSixteenth);
+    int samplesPerSixteenth = static_cast<int>((44100 * 60.0) / (currentBPM * 4));
 
-    for (int sample = 0; sample < inputBuffer.getNumSamples(); ++sample) {
-        hpcpCounter++;
-
-        // Collect samples for HPCP.
-        audioDataForHPCP.push_back(inputBuffer.getSample(0, sample));
-
-        if (hpcpCounter >= samplesPerSixteenth) {
-            hpcpCounter = 0;
-
-            // Compute HPCP and predict note.
-            std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
-            for (float value : hpcpValues) {
-                std::cout << value << ", ";
-            }
-            std::cout << std::endl;
-            predictedFrequency = predictNote(hpcpValues);
-
-            // Clear the buffer.
-            audioDataForHPCP.clear();
+    hpcpCounter += buffer.getNumSamples();
+    if (hpcpCounter >= samplesPerSixteenth) {
+        hpcpCounter = 0;
+        std::vector<float> audioDataForHPCP(ringBuffer.getWritePointer(0), ringBuffer.getWritePointer(0) + samplesPerSixteenth);
+        std::vector<float> hpcpValues = computeHPCPs(audioDataForHPCP);
+        predictedFrequency = predictNote(hpcpValues);
         }
-    }
 
-    //float gainFactor = 0.1f;
-    for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
-        float sineValue = sineOsc.processSample(0.0f);  // get sine wave sample
-        float envValue = adsr.getNextSample();  // get envelope value
-        //sineValue *= gainFactor;
-        // Apply envelope to sine wave
-        float processedSample = sineValue * envValue;
-
-
-        for (int channel = 0; channel < getTotalNumOutputChannels(); ++channel) {
-            buffer.addSample(channel, sample, processedSample);  // Add the processed sample to the buffer
-        }
-    }
+        // ... (the rest of your code remains the same)
 
     if (abs(predictedFrequency - lastPredictedFrequency) > frequencyTolerance || predictedFrequency == 0.0f) {
-        adsr.noteOff(); // Release the previous note
-        predictedFrequency = predictedFrequency + 200;
-        if (predictedFrequency > 200) {
-            adsr.noteOn();  // Start the attack for the new note only if frequency is greater than zero
-            sineOsc.setFrequency(predictedFrequency); // Update the oscillator frequency
-        } else {
-            buffer.clear(); // Clear buffer if frequency is zero
-        }
-
         lastPredictedFrequency = predictedFrequency; // Update the last predicted frequency
-    }
-    // else block remains the same
+        predictedFrequency = predictedFrequency + 200.0f;
+        sineOsc.setFrequency(predictedFrequency); // Update the oscillator frequency
+        // Process the audio buffer
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+            float sineValue = sineOsc.processSample(0.0f); // Zero means no FM
 
-    // Iterate through the buffer to check for overflows or underflows
-    for (int i = 0; i < buffer.getNumSamples(); ++i) {
-        float sample = buffer.getSample(0, i);
-        if (sample < -1.0f || sample > 1.0f) {
-            std::cout << "Possible buffer overflow/underflow at sample " << i << std::endl;
-        }
-
-        // Optional: If you still encounter noise, check the values when they should be silent
-        if (predictedFrequency == 0.0f && sample != 0.0f) {
-            std::cout << "Unexpected non-zero sample while frequency is zero, at sample " << i << std::endl;
+            for (int channel = 0; channel < getTotalNumOutputChannels(); ++channel) {
+                buffer.addSample(channel, sample, sineValue); // Add the sine value directly to the buffer
+            }
         }
     }
 }
 
+/*
 void SYBIL_vstiAudioProcessor::detectBPMThreaded(std::vector<float> audioData)
 {
     // Lock the mutex while performing BPM detection
@@ -480,8 +437,8 @@ void SYBIL_vstiAudioProcessor::detectBPMThreaded(std::vector<float> audioData)
     // Your existing detectBPM code
     bpm = detectBPM(audioData);
     std::cout << "bpm = " << bpm << std::endl;
-    samplesPerSixteenth = static_cast<int>((getSampleRate() * 60.0) / (bpm * 4));
 }
+*/
 
 
 //==============================================================================

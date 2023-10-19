@@ -101,8 +101,22 @@ private:
     bool hasNewData = false;  // A flag to signal the thread that new data is available
     std::vector<float> threadAudioData;  // Buffer for data that should be processed by the thread
     float bpm = 120.0;
+    float currentBPM = 120.0;
+    int samplesPerSixteenth = 5112;
     float* bpmPointer;
     bool isPredicting = false;
+    bool bpmThreadShouldRun = true;
+
+    float originalFrequencyOfVoiceSample = 440.0;
+    juce::AudioBuffer<float> voiceAudioBuffer;
+    int voiceSampleIndex = 0;
+    float pitchShiftRatio = 1.0;
+    float lastPredictedFrequency = -1.0;  // Initialize to an invalid value
+    float frequencyTolerance = 0.1;  // Frequency tolerance; you may need to adjust this value
+
+    float predictedFrequency = 440.0;
+
+    juce::AudioBuffer<float> inputBuffer;
 
     tensorflow::Session* session;
     tensorflow::SavedModelBundle bundle;
