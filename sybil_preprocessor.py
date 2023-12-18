@@ -40,6 +40,15 @@ def custom_loss(y_true, y_pred):
 
     return tf.reduce_mean(in_range_error + out_of_range_error + zero_error + non_zero_error)
 
+def create_or_resize_dataset(hdf5_file, name, shape, maxshape, dtype='float32'):
+    if name in hdf5_file:
+        dataset = hdf5_file[name]
+        new_shape = (dataset.shape[0] + shape[0],) + dataset.shape[1:]
+        dataset.resize(new_shape)
+        return dataset
+    else:
+        return hdf5_file.create_dataset(name, shape, maxshape=maxshape, dtype=dtype)
+
 def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
     audio_file = file_for_preprocessing
     loader = es.MonoLoader(filename=audio_file)
@@ -120,6 +129,46 @@ def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
     if len(vocal_frames) != len(accompaniment_frames):
         raise ValueError("Frame mismatch: The number of vocal and accompaniment frames does not match.")
 
+    with h5py.File(hdf5_filename, 'a') as hdf5_file:
+        # Assuming the length of MFCC and HPCP vectors
+        mfcc_length = 13  # Adjust based on your MFCC feature size
+        hpcp_length = 12  # Adjust based on your HPCP feature size
+
+        # Create or resize datasets in HDF5 file
+        num_new_frames = len(vocal_frames)
+        dset_vocal_energy = create_or_resize_dataset(hdf5_file, "vocal_energy", (num_new_frames,), (None,))
+        dset_vocal_mfcc = create_or_resize_dataset(hdf5_file, "vocal_mfcc", (num_new_frames, mfcc_length),
+                                                   (None, mfcc_length))
+        dset_vocal_pitches = create_or_resize_dataset(hdf5_file, "vocal_pitches", (num_new_frames,), (None,))
+        dset_accompaniment_hpcps = create_or_resize_dataset(hdf5_file, "accompaniment_hpcps",
+                                                            (num_new_frames, hpcp_length), (None, hpcp_length))
+        dset_accompaniment_energy = create_or_resize_dataset(hdf5_file, "accompaniment_energy", (num_new_frames,),
+                                                             (None,))
+
+        offset = dset_vocal_energy.shape[0] - num_new_frames
+
+        # vocal and accompaniment data collection
+        for i, (vocal_frame, accompaniment_frame) in enumerate(zip(vocal_frames, accompaniment_frames)):
+            # Process vocal frame
+            current_frame_vocal_energy = energy_algo(vocal_frame)
+            pitches, _ = pitch_algo(vocal_frame)
+            mfcc_bands, mfcc_coeffs = mfcc_algo(vocal_frame)
+
+            # Process accompaniment frame
+            accompaniment_frame_windowed = window(accompaniment_frame)
+            accompaniment_frame_spectrum = spectrum(accompaniment_frame_windowed)
+            frequencies, magnitudes = spectral_peaks(accompaniment_frame_spectrum)
+            accompaniment_frame_hpcp = hpcp(frequencies, magnitudes)
+            accompaniment_frame_energy = energy_algo(accompaniment_frame)
+
+            # Append features to HDF5 datasets
+            dset_vocal_energy[offset + i] = current_frame_vocal_energy
+            dset_vocal_mfcc[offset + i, :] = mfcc_coeffs
+            dset_vocal_pitches[offset + i] = pitches
+            dset_accompaniment_hpcps[offset + i, :] = accompaniment_frame_hpcp
+            dset_accompaniment_energy[offset + i] = accompaniment_frame_energy
+
+'''
     # vocal data collection
     for vocal_frame in vocal_frames:
         # Detect energy
@@ -168,6 +217,7 @@ def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
 
     numpy.set_printoptions(threshold=sys.maxsize)
     print("accompaniment hpcps: " + str(accompaniment_hpcps))
+'''
 
     # Here, we need to slice the data so that it makes sense going into tensorflow
     # As of 11/13/2023, we no longer need this format of data.
@@ -212,7 +262,7 @@ for idx, filename in enumerate(os.listdir(audio_directory)):
     file_path = os.path.join(audio_directory, filename)
     if os.path.isfile(file_path):
         print(file_path)
-        vocal_data, input_data = sybil_preprocessor(file_path)
+        sybil_preprocessor(file_path, 'sybil_features.h5')
 
 
 '''
@@ -231,5 +281,4 @@ for input_hpcp in input_data:
     input_hpcp = np.expand_dims(input_hpcp, axis=0)
     prediction = model.predict(input_hpcp)
     print(prediction)
-
 '''
