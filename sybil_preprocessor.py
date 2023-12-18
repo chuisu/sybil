@@ -40,14 +40,19 @@ def custom_loss(y_true, y_pred):
 
     return tf.reduce_mean(in_range_error + out_of_range_error + zero_error + non_zero_error)
 
-def create_or_resize_dataset(hdf5_file, name, shape, maxshape, dtype='float32'):
+def create_or_resize_dataset(hdf5_file, name, total_frames, frame_shape, maxshape, dtype='float32'):
+    # Create a full shape combining total_frames and the shape of an individual frame
+    full_shape = (total_frames,) + frame_shape
+
     if name in hdf5_file:
         dataset = hdf5_file[name]
-        new_shape = (dataset.shape[0] + shape[0],) + dataset.shape[1:]
-        dataset.resize(new_shape)
+        # Resize only if the existing dataset is smaller than required
+        if dataset.shape[0] < total_frames:
+            new_shape = (total_frames,) + dataset.shape[1:]
+            dataset.resize(new_shape)
         return dataset
     else:
-        return hdf5_file.create_dataset(name, shape, maxshape=maxshape, dtype=dtype)
+        return hdf5_file.create_dataset(name, full_shape, maxshape=maxshape, dtype=dtype)
 
 def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
     audio_file = file_for_preprocessing
@@ -136,16 +141,20 @@ def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
 
         # Create or resize datasets in HDF5 file
         num_new_frames = len(vocal_frames)
-        dset_vocal_energy = create_or_resize_dataset(hdf5_file, "vocal_energy", (num_new_frames,), (None,))
-        dset_vocal_mfcc = create_or_resize_dataset(hdf5_file, "vocal_mfcc", (num_new_frames, mfcc_length),
-                                                   (None, mfcc_length))
-        dset_vocal_pitches = create_or_resize_dataset(hdf5_file, "vocal_pitches", (num_new_frames,), (None,))
-        dset_accompaniment_hpcps = create_or_resize_dataset(hdf5_file, "accompaniment_hpcps",
-                                                            (num_new_frames, hpcp_length), (None, hpcp_length))
-        dset_accompaniment_energy = create_or_resize_dataset(hdf5_file, "accompaniment_energy", (num_new_frames,),
-                                                             (None,))
+        existing_frames = hdf5_file['vocal_energy'].shape[0] if "vocal_energy" in hdf5_file else 0
+        total_frames = existing_frames + num_new_frames
 
-        offset = dset_vocal_energy.shape[0] - num_new_frames
+        # Create or resize datasets in HDF5 file
+        dset_vocal_energy = create_or_resize_dataset(hdf5_file, "vocal_energy", total_frames, (), (None,))
+        dset_vocal_mfcc = create_or_resize_dataset(hdf5_file, "vocal_mfcc", total_frames, (mfcc_length,), (None, mfcc_length))
+        dset_vocal_pitches = create_or_resize_dataset(hdf5_file, "vocal_pitches", total_frames, (), (None,))
+        dset_accompaniment_hpcps = create_or_resize_dataset(hdf5_file, "accompaniment_hpcps", total_frames, (hpcp_length,), (None, hpcp_length))
+        dset_accompaniment_energy = create_or_resize_dataset(hdf5_file, "accompaniment_energy", total_frames, (), (None,))
+
+        # Adjust the shape for audio grains
+        dset_vocal_audio = create_or_resize_dataset(hdf5_file, "vocal_audio", total_frames, (samples_per_sixteenth,), (None, samples_per_sixteenth))
+
+        offset = existing_frames
 
         # vocal and accompaniment data collection
         for i, (vocal_frame, accompaniment_frame) in enumerate(zip(vocal_frames, accompaniment_frames)):
@@ -167,6 +176,9 @@ def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
             dset_vocal_pitches[offset + i] = pitches
             dset_accompaniment_hpcps[offset + i, :] = accompaniment_frame_hpcp
             dset_accompaniment_energy[offset + i] = accompaniment_frame_energy
+
+            # Store audio grains
+            dset_vocal_audio[offset + i] = numpy.array(vocal_frame)
 
 '''
     # vocal data collection
