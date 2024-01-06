@@ -1,9 +1,9 @@
 import h5py
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense, LSTM, Concatenate
+from tensorflow.keras.layers import Input, Dense, LSTM, Concatenate, Reshape, Flatten
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import LSTM
+from tensorflow.keras.layers import LSTM, TimeDistributed
 
 with h5py.File('sybil_features.h5', 'r') as hdf5_file:
     vocal_energy = np.array(hdf5_file['vocal_energy'])
@@ -19,28 +19,36 @@ def create_windows(data, window_size):
     return np.array(windows)
 
 window_size = 12
+
 vocal_energy_windows = create_windows(vocal_energy, window_size)
+print("Shape of vocal_energy_windows:", vocal_energy_windows.shape)
+
 vocal_mfcc_windows = create_windows(vocal_mfcc, window_size)
+print("Shape of vocal_mfcc_windows:", vocal_mfcc_windows.shape)
+
 vocal_pitches_windows = create_windows(vocal_pitches, window_size)
+print("Shape of vocal_pitches_windows:", vocal_pitches_windows.shape)
+
 accompaniment_hpcps_windows = create_windows(accompaniment_hpcps, window_size)
+print("Shape of accompaniment_hpcps_windows:", accompaniment_hpcps_windows.shape)
+
 accompaniment_energy_windows = create_windows(accompaniment_energy, window_size)
+print("Shape of accompaniment_energy_windows:", accompaniment_energy_windows.shape)
 
-# Example LSTM implementation
-input_accompaniment_hpcp = Input(shape=(window_size, accompaniment_hpcps.shape[-1]))  # Adjust 'window_size' and feature dimensions
-input_accompaniment_energy = Input(shape=(window_size, 1))  # Reshaped to 2D
+# Input layers - the shape is now considering windows
+input_accompaniment_hpcp = Input(shape=(window_size, accompaniment_hpcps_windows.shape[2]))
+input_accompaniment_energy = Input(shape=(window_size, 1))  # 1 feature after windowing
 
-# Process each input with an LSTM layer
-lstm_accompaniment_hpcp = LSTM(64)(input_accompaniment_hpcp)
-lstm_accompaniment_energy = LSTM(64)(input_accompaniment_energy)
-
-# Combine the outputs from LSTM layers
+# LSTM layers for each input
+lstm_accompaniment_hpcp = LSTM(64, return_sequences=True)(input_accompaniment_hpcp)
+lstm_accompaniment_energy = LSTM(64, return_sequences=True)(input_accompaniment_energy)
 combined = Concatenate()([lstm_accompaniment_hpcp, lstm_accompaniment_energy])
+flattened_output = Flatten()(combined)
+lstm_layer_for_mfcc = LSTM(64, return_sequences=True)(combined)
 
-# Separate output layers for each target feature
-# Output layers
-output_vocal_energy = Dense(1, activation='linear', name='vocal_energy')(combined)
-output_vocal_pitches = Dense(1, activation='linear', name='vocal_pitches')(combined)
-output_vocal_mfcc = Dense(13, activation='linear', name='vocal_mfcc')(combined)  # 13 corresponds to the shape of vocal_mfcc
+output_vocal_energy = Dense(12, activation='linear', name='vocal_energy')(flattened_output)
+output_vocal_pitches = Dense(12, activation='linear', name='vocal_pitches')(flattened_output)
+output_vocal_mfcc = TimeDistributed(Dense(13, activation='linear'), name='vocal_mfcc')(lstm_layer_for_mfcc)
 
 # Create and compile the model
 model = Model(inputs=[input_accompaniment_hpcp, input_accompaniment_energy],
@@ -50,7 +58,11 @@ model.compile(optimizer='adam', loss={'vocal_energy': 'mean_squared_error',
                                       'vocal_pitches': 'mean_squared_error',
                                       'vocal_mfcc': 'mean_squared_error'})
 
+model.summary()
+
 # Train the model
 model.fit([accompaniment_hpcps_windows, accompaniment_energy_windows],
-          {'vocal_energy': vocal_energy_windows, 'vocal_pitches': vocal_pitches_windows, 'vocal_mfcc': vocal_mfcc_windows},
+          [vocal_energy_windows, vocal_pitches_windows, vocal_mfcc_windows],
           epochs=10, batch_size=32)
+
+model.save('sybil_model')
