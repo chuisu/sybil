@@ -89,7 +89,7 @@ def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
             return False  # Track has not been processed
 
     separator = Separator('spleeter:2stems')
-    output_folder = '/home/b/Workspace/sybil/spleeted'
+    output_folder = '/home/b/Workspace/sybil-data/spleeted'
 
     track_name = Path(audio_file).stem
 
@@ -245,7 +245,7 @@ def sybil_preprocessor(file_for_preprocessing, hdf5_filename):
     # return vocal_data, input_data
 
 # Define the neural network architecture
-model = tf.keras.Sequential([
+''' model = tf.keras.Sequential([
     tf.keras.layers.Dense(512, activation='relu', input_shape=(12,)),
     tf.keras.layers.Dense(256, activation='relu'),
     tf.keras.layers.Dense(128, activation='relu'),
@@ -258,7 +258,7 @@ model = tf.keras.Sequential([
 model.compile(tf.keras.optimizers.Adam(learning_rate=.0005), loss=custom_loss)
 
 # Define learning rate scheduler that changes learning rate as epochs advance
-'''def scheduler(epoch, lr):
+def scheduler(epoch, lr):
     if epoch < 10:
         return lr
     else:
